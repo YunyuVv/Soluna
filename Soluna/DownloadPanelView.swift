@@ -15,12 +15,12 @@ struct DownloadPanelView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 headerSection
-                inputSection
-                qualitySection
-                renameSection
-                clipSection
-                actionSection
-                taskListSection
+                GlassCard { inputSection }
+                GlassCard { qualitySection }
+                GlassCard { renameSection }
+                GlassCard { clipSection }
+                GlassCard { actionSection }
+                GlassCard { taskListSection }
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -78,24 +78,30 @@ struct DownloadPanelView: View {
     }
 
     private var qualitySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("清晰度")
-                .font(.headline)
-            Picker("清晰度", selection: $model.quality) {
-                ForEach(VideoQuality.allCases) { item in
-                    Text(item.title).tag(item)
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("清晰度")
+                    .font(.headline)
+                Picker("清晰度", selection: $model.quality) {
+                    ForEach(VideoQuality.allCases) { item in
+                        Text(item.title).tag(item)
+                    }
                 }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.segmented)
 
-            Text("输出格式")
-                .font(.headline)
-            Picker("输出格式", selection: $model.outputFormat) {
-                ForEach(OutputFormat.allCases) { item in
-                    Text(item.title).tag(item)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("输出格式")
+                    .font(.headline)
+                Picker("输出格式", selection: $model.outputFormat) {
+                    ForEach(OutputFormat.allCases) { item in
+                        Text(item.title).tag(item)
+                    }
                 }
+                .pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.segmented)
         }
     }
 
@@ -224,8 +230,7 @@ struct DownloadPanelView: View {
                         .foregroundStyle(.secondary)
                     }
                     .padding(12)
-                    .background(Color.gray.opacity(0.08))
-                    .clipShape(.rect(cornerRadius: 12))
+                    .glassRowStyle()
                 }
             }
         }
@@ -262,6 +267,44 @@ private struct ThumbnailView: View {
                 ProgressView()
                     .controlSize(.small)
             }
+        }
+    }
+}
+
+/// 玻璃卡片容器，macOS 26 使用玻璃效果，旧系统退化为材料背景。
+private struct GlassCard<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCardStyle()
+    }
+}
+
+private extension View {
+    /// 玻璃卡片样式。
+    @ViewBuilder
+    func glassCardStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: 16))
+        } else {
+            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        }
+    }
+
+    /// 列表行的轻量玻璃样式。
+    @ViewBuilder
+    func glassRowStyle() -> some View {
+        if #available(macOS 26.0, *) {
+            self.glassEffect(.regular, in: .rect(cornerRadius: 12))
+        } else {
+            self.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 }

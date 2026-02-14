@@ -340,9 +340,11 @@ final class DownloadViewModel {
         appendTaskLog(line, taskID: taskID)
         captureOutputPathIfNeeded(line, taskID: taskID)
         if let percent = parseProgress(line) {
+            // 只保留最新一条进度，避免视频/音频两段进度造成“重复显示”。
             updateTaskProgress(id: taskID, progress: percent)
         }
         if let speed = parseSpeed(line) {
+            // 同样只展示最后一次速度信息。
             updateTaskSpeed(id: taskID, speed: speed)
         }
     }
