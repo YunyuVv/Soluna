@@ -70,6 +70,10 @@ struct DownloadPanelView: View {
 
             TextField("在此粘贴 YouTube 链接…", text: $model.url)
                 .textFieldStyle(.roundedBorder)
+                .submitLabel(.go)
+                .onSubmit {
+                    model.startDownload()
+                }
         }
     }
 
@@ -210,9 +214,14 @@ struct DownloadPanelView: View {
                             .disabled(model.currentTaskID == task.id)
                         }
                         ProgressView(value: task.progress)
-                        Text("\(Int(task.progress * 100))%")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text("\(Int(task.progress * 100))%")
+                            if !task.speedText.isEmpty {
+                                Text(task.speedText)
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
                     .padding(12)
                     .background(Color.gray.opacity(0.08))

@@ -74,6 +74,7 @@ final class DownloadViewModel {
             thumbnailURL: "",
             isThumbnailLoading: true,
             outputPath: "",
+            speedText: "",
             clipStart: clipStart,
             clipEnd: clipEnd,
             outputName: outputName,
@@ -341,6 +342,9 @@ final class DownloadViewModel {
         if let percent = parseProgress(line) {
             updateTaskProgress(id: taskID, progress: percent)
         }
+        if let speed = parseSpeed(line) {
+            updateTaskSpeed(id: taskID, speed: speed)
+        }
     }
 
     private func buildArguments(for task: DownloadTask) -> [String] {
@@ -500,6 +504,17 @@ final class DownloadViewModel {
         return min(max(value / 100.0, 0), 1)
     }
 
+    private func parseSpeed(_ line: String) -> String? {
+        let pattern = "(\\d+(?:\\.\\d+)?)\\s*(KiB/s|MiB/s|GiB/s|B/s)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(line.startIndex..<line.endIndex, in: line)
+        guard let match = regex.firstMatch(in: line, range: range) else { return nil }
+        guard let valueRange = Range(match.range(at: 1), in: line),
+              let unitRange = Range(match.range(at: 2), in: line)
+        else { return nil }
+        return "\(line[valueRange]) \(line[unitRange])"
+    }
+
     private func updateTaskStatus(id: UUID, status: String) {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].status = status
@@ -508,6 +523,11 @@ final class DownloadViewModel {
     private func updateTaskProgress(id: UUID, progress: Double) {
         guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
         tasks[index].progress = progress
+    }
+
+    private func updateTaskSpeed(id: UUID, speed: String) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].speedText = speed
     }
 
     private func appendTaskLog(_ line: String, taskID: UUID) {
@@ -636,6 +656,7 @@ struct DownloadTask: Identifiable, Hashable {
     var thumbnailURL: String
     var isThumbnailLoading: Bool
     var outputPath: String
+    var speedText: String
     let clipStart: String
     let clipEnd: String
     let outputName: String
