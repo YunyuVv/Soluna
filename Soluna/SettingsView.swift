@@ -17,6 +17,7 @@ struct SettingsView: View {
                 downloadSection
                 cookieSection
                 runtimeSection
+                ffmpegSection
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,6 +113,35 @@ struct SettingsView: View {
         }
     }
 
+    private var ffmpegSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ffmpeg")
+                .font(.headline)
+            HStack(spacing: 12) {
+                TextField("ffmpeg 路径（可选）", text: $settings.ffmpegPath)
+                    .textFieldStyle(.roundedBorder)
+                Button("选择文件") {
+                    pickFFmpegFile()
+                }
+                .buttonStyle(.bordered)
+                Button("自动检测") {
+                    settings.autoDetectFFmpeg()
+                }
+                .buttonStyle(.bordered)
+                Button("测试") {
+                    settings.testFFmpeg()
+                }
+                .buttonStyle(.bordered)
+            }
+            Text("用于合并音视频与裁剪。未设置可能导致部分下载失败。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(settings.ffmpegStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private func pickDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -142,6 +172,17 @@ struct SettingsView: View {
         panel.prompt = "选择"
         if panel.runModal() == .OK, let url = panel.url {
             settings.jsRuntimePath = url.path
+        }
+    }
+
+    private func pickFFmpegFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "选择"
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.ffmpegPath = url.path
         }
     }
 }

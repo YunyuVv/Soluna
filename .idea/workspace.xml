@@ -4,10 +4,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="1f73b936-aa94-4fc5-b747-f87614a0c94a" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/Soluna.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna.xcodeproj/project.pbxproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Soluna/ContentView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/ContentView.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Soluna/SolunaApp.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/SolunaApp.swift" afterDir="false" />
+    <list default="true" id="1f73b936-aa94-4fc5-b747-f87614a0c94a" name="更改" comment="可以下载">
+      <change afterPath="$PROJECT_DIR$/Soluna/TaskLogView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Soluna/DownloadPanelView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/DownloadPanelView.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Soluna/DownloadViewModel.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/DownloadViewModel.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Soluna/SettingsStore.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/SettingsStore.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Soluna/SettingsView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/Soluna/SettingsView.swift" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -119,8 +122,25 @@
       <workItem from="1771040770684" duration="22000" />
       <workItem from="1771040871348" duration="9000" />
       <workItem from="1771040920109" duration="92000" />
-      <workItem from="1771041061180" duration="299000" />
+      <workItem from="1771041061180" duration="1651000" />
     </task>
+    <task id="LOCAL-00001" summary="初始化">
+      <option name="closed" value="true" />
+      <created>1771041454370</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1771041454370</updated>
+    </task>
+    <task id="LOCAL-00002" summary="可以下载">
+      <option name="closed" value="true" />
+      <created>1771045913674</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1771045913674</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -128,6 +148,9 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <MESSAGE value="初始化" />
+    <MESSAGE value="可以下载" />
+    <option name="LAST_COMMIT_MESSAGE" value="可以下载" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>

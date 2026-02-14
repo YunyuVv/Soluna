@@ -14,13 +14,20 @@ struct DownloadPanelView: View {
             VStack(alignment: .leading, spacing: 20) {
                 headerSection
                 inputSection
+                renameSection
+                clipSection
                 actionSection
-                logSection
+                taskListSection
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("下载")
+        .sheet(isPresented: $model.showTaskLog) {
+            if let task = selectedTask {
+                TaskLogView(task: task)
+            }
+        }
     }
 
     private var headerSection: some View {
@@ -48,6 +55,34 @@ struct DownloadPanelView: View {
         }
     }
 
+    private var renameSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("文件名（可选）")
+                .font(.headline)
+            TextField("不填则使用原始名称", text: $model.outputName)
+                .textFieldStyle(.roundedBorder)
+            Text("仅填写名称，不含扩展名。实际保存为 <名称>.%(ext)s")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var clipSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("选段下载（可选）")
+                .font(.headline)
+            HStack(spacing: 12) {
+                TextField("开始时间 例如 01:00(分:秒)", text: $model.clipStart)
+                    .textFieldStyle(.roundedBorder)
+                TextField("结束时间 例如 11:00(分:秒)", text: $model.clipEnd)
+                    .textFieldStyle(.roundedBorder)
+            }
+            Text("不填写则下载完整视频。支持 MM:SS 或 HH:MM:SS。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var actionSection: some View {
         HStack(spacing: 12) {
             Button {
@@ -56,7 +91,17 @@ struct DownloadPanelView: View {
                 Label(model.isDownloading ? "下载中…" : "开始下载", systemImage: "arrow.down.to.line")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(model.isDownloading)
+            .disabled(false)
+
+            Button(model.isPaused ? "继续" : "暂停") {
+                if model.isPaused {
+                    model.resumeDownload()
+                } else {
+                    model.pauseDownload()
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(!model.isDownloading)
 
             Button("取消") {
                 model.cancelDownload()
@@ -76,20 +121,94 @@ struct DownloadPanelView: View {
         }
     }
 
-    private var logSection: some View {
+    private var taskListSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("yt-dlp 输出")
+            Text("下载队列")
                 .font(.headline)
-            ScrollView {
-                Text(model.log.isEmpty ? "暂无日志" : model.log)
-                    .font(.system(.footnote, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+            if model.tasks.isEmpty {
+                Text("暂无任务")
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(model.tasks) { task in
+                    VStack(spacing: 8) {
+                        HStack(spacing: 12) {
+                            ThumbnailView(urlString: task.thumbnailURL, isLoading: task.isThumbnailLoading)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(task.title)
+                                    .font(.subheadline)
+                                    .lineLimit(2)
+                                Text(task.status)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if model.currentTaskID == task.id {
+                                Button(model.isPaused ? "继续" : "暂停") {
+                                    if model.isPaused {
+                                        model.resumeTask(id: task.id)
+                                    } else {
+                                        model.pauseTask(id: task.id)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            Button("取消") {
+                                model.cancelTask(id: task.id)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.currentTaskID == task.id && !model.isDownloading)
+                            Button("详细日志") {
+                                model.selectedTaskID = task.id
+                                model.showTaskLog = true
+                            }
+                            .buttonStyle(.bordered)
+                            Button("移除") {
+                                model.removeTask(id: task.id)
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.currentTaskID == task.id)
+                        }
+                        ProgressView(value: task.progress)
+                    }
+                    .padding(12)
+                    .background(Color.gray.opacity(0.08))
+                    .clipShape(.rect(cornerRadius: 12))
+                }
             }
-            .frame(minHeight: 180)
-            .padding(12)
-            .background(Color.gray.opacity(0.08))
-            .clipShape(.rect(cornerRadius: 12))
+        }
+    }
+
+    private var selectedTask: DownloadTask? {
+        guard let id = model.selectedTaskID else { return nil }
+        return model.tasks.first(where: { $0.id == id })
+    }
+}
+
+private struct ThumbnailView: View {
+    let urlString: String
+    let isLoading: Bool
+
+    var body: some View {
+        Group {
+            if let url = URL(string: urlString) {
+                AsyncImage(url: url) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+            } else {
+                Color.gray.opacity(0.2)
+            }
+        }
+        .frame(width: 64, height: 36)
+        .clipShape(.rect(cornerRadius: 6))
+        .overlay {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
         }
     }
 }
