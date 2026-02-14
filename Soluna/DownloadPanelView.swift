@@ -8,6 +8,8 @@ import SwiftUI
 /// 右侧下载页面（单个下载）。
 struct DownloadPanelView: View {
     @Bindable var model: DownloadViewModel
+    @State private var showRemoveConfirm = false
+    @State private var pendingRemoveTaskID: UUID?
 
     var body: some View {
         ScrollView {
@@ -28,6 +30,21 @@ struct DownloadPanelView: View {
             if let task = selectedTask {
                 TaskLogView(task: task)
             }
+        }
+        .confirmationDialog("移除任务", isPresented: $showRemoveConfirm) {
+            Button("仅移除记录", role: .destructive) {
+                if let id = pendingRemoveTaskID {
+                    model.removeTask(id: id, deleteFile: false)
+                }
+            }
+            Button("删除文件并移除", role: .destructive) {
+                if let id = pendingRemoveTaskID {
+                    model.removeTask(id: id, deleteFile: true)
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("是否同时删除已下载的文件？")
         }
     }
 
@@ -165,7 +182,7 @@ struct DownloadPanelView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if model.currentTaskID == task.id {
+                            if model.currentTaskID == task.id && task.status == "下载中…" {
                                 Button(model.isPaused ? "继续" : "暂停") {
                                     if model.isPaused {
                                         model.resumeTask(id: task.id)
@@ -186,12 +203,16 @@ struct DownloadPanelView: View {
                             }
                             .buttonStyle(.bordered)
                             Button("移除") {
-                                model.removeTask(id: task.id)
+                                pendingRemoveTaskID = task.id
+                                showRemoveConfirm = true
                             }
                             .buttonStyle(.bordered)
                             .disabled(model.currentTaskID == task.id)
                         }
                         ProgressView(value: task.progress)
+                        Text("\(Int(task.progress * 100))%")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .padding(12)
                     .background(Color.gray.opacity(0.08))

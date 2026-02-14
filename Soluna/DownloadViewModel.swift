@@ -73,6 +73,7 @@ final class DownloadViewModel {
             progress: 0,
             thumbnailURL: "",
             isThumbnailLoading: true,
+            outputPath: "",
             clipStart: clipStart,
             clipEnd: clipEnd,
             outputName: outputName,
@@ -171,6 +172,15 @@ final class DownloadViewModel {
         tasks.removeAll { $0.id == id }
     }
 
+    func removeTask(id: UUID, deleteFile: Bool) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        let path = tasks[index].outputPath
+        if deleteFile, !path.isEmpty {
+            deleteDownloadedFile(path: path)
+        }
+        removeTask(id: id)
+    }
+
     /// 预热 yt-dlp 路径（后台缓存）。
     private func warmupYtDlpPath() {
         Task.detached { [weak self] in
@@ -191,6 +201,7 @@ final class DownloadViewModel {
             guard !queue.isEmpty else {
                 isDownloading = false
                 status = "就绪"
+                currentTaskID = nil
                 return nil
             }
             let id = queue.removeFirst()
@@ -326,6 +337,7 @@ final class DownloadViewModel {
     /// 追加日志文本。
     private func appendLog(_ line: String, taskID: UUID) {
         appendTaskLog(line, taskID: taskID)
+        captureOutputPathIfNeeded(line, taskID: taskID)
         if let percent = parseProgress(line) {
             updateTaskProgress(id: taskID, progress: percent)
         }
@@ -507,6 +519,43 @@ final class DownloadViewModel {
         }
     }
 
+    private func captureOutputPathIfNeeded(_ line: String, taskID: UUID) {
+        let patterns = [
+            "[download] Destination: ",
+            "Merging formats into \""
+        ]
+        if line.contains(patterns[0]) {
+            let path = line.replacingOccurrences(of: patterns[0], with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+            updateTaskOutputPath(id: taskID, path: path)
+            return
+        }
+        if line.contains(patterns[1]) {
+            let start = line.range(of: patterns[1])?.upperBound
+            let end = line.lastIndex(of: "\"")
+            if let start, let end, start < end {
+                let path = String(line[start..<end])
+                updateTaskOutputPath(id: taskID, path: path)
+            }
+        }
+    }
+
+    private func updateTaskOutputPath(id: UUID, path: String) {
+        guard let index = tasks.firstIndex(where: { $0.id == id }) else { return }
+        tasks[index].outputPath = path
+    }
+
+    private func deleteDownloadedFile(path: String) {
+        let fileManager = FileManager.default
+        let normalized = path.hasSuffix(".part") ? String(path.dropLast(5)) : path
+        let candidates = [
+            normalized,
+            normalized + ".part"
+        ]
+        for item in candidates where fileManager.fileExists(atPath: item) {
+            try? fileManager.removeItem(atPath: item)
+        }
+    }
+
     private func fetchThumbnail(for taskID: UUID) async {
         guard let executableURL = DownloadViewModel.resolveSystemYtDlpSync() else { return }
         let url = await MainActor.run { () -> String? in
@@ -586,6 +635,7 @@ struct DownloadTask: Identifiable, Hashable {
     var progress: Double
     var thumbnailURL: String
     var isThumbnailLoading: Bool
+    var outputPath: String
     let clipStart: String
     let clipEnd: String
     let outputName: String
