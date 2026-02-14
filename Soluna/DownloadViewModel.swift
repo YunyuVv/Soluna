@@ -19,6 +19,11 @@ final class DownloadViewModel {
     // 检测到的 yt-dlp 路径。
     var ytDlpPath: String = ""
 
+    // 清晰度选择。
+    var quality: VideoQuality = .auto
+    // 输出格式。
+    var outputFormat: OutputFormat = .mp4
+
     // 下载任务列表（按入队顺序）。
     var tasks: [DownloadTask] = []
     // 当前任务 ID。
@@ -70,25 +75,18 @@ final class DownloadViewModel {
             isThumbnailLoading: true,
             clipStart: clipStart,
             clipEnd: clipEnd,
-            outputName: outputName
+            outputName: outputName,
+            quality: quality,
+            outputFormat: outputFormat
         )
 
         tasks.insert(newTask, at: 0)
         queue.append(newTask.id)
         logStore.append("任务入队：\(newTask.title)", channel: .system)
 
-        // 异步获取缩略图（后台执行，避免阻塞主线程）。
-        if let request = makeThumbnailRequest(url: newTask.url) {
-            Task.detached { [weak self] in
-                let output = DownloadViewModel.fetchThumbnail(request: request)
-                await MainActor.run {
-                    guard let self else { return }
-                    if let index = self.tasks.firstIndex(where: { $0.id == newTask.id }) {
-                        self.tasks[index].thumbnailURL = output ?? ""
-                        self.tasks[index].isThumbnailLoading = false
-                    }
-                }
-            }
+        // 异步获取缩略图。
+        Task.detached { [weak self] in
+            await self?.fetchThumbnail(for: newTask.id)
         }
 
         // 启动队列处理（异步，不阻塞 UI）。
@@ -238,7 +236,8 @@ final class DownloadViewModel {
             cachedYtDlpPath = executablePath
             logStore.append("使用 yt-dlp 路径：\(ytDlpPath)", channel: .system)
             logStore.append("下载目录：\(settings.downloadDirectory)", channel: .system)
-            logStore.append("使用格式：默认最优（不指定 -f）", channel: .system)
+            logStore.append("清晰度：\(taskData.quality.title)", channel: .system)
+            logStore.append("输出格式：\(taskData.outputFormat.title)", channel: .system)
             if !taskData.clipStart.isEmpty || !taskData.clipEnd.isEmpty {
                 let normalizedStart = normalizeTime(taskData.clipStart) ?? taskData.clipStart
                 let normalizedEnd = normalizeTime(taskData.clipEnd) ?? taskData.clipEnd
@@ -360,6 +359,14 @@ final class DownloadViewModel {
 
         if let section = buildDownloadSection(task.clipStart, task.clipEnd) {
             args.append(contentsOf: ["--download-sections", section])
+        }
+
+        if let format = buildQualityFormat(task.quality) {
+            args.append(contentsOf: ["-f", format])
+        }
+
+        if task.outputFormat != .auto {
+            args.append(contentsOf: ["--merge-output-format", task.outputFormat.ytDlpValue])
         }
 
         args.append(task.url)
@@ -500,24 +507,19 @@ final class DownloadViewModel {
         }
     }
 
-    private func makeThumbnailRequest(url: String) -> ThumbnailRequest? {
-        ThumbnailRequest(
-            url: url,
-            cookieMode: settings.cookieMode,
-            cookieFilePath: settings.cookieFilePath,
-            browserType: settings.browserType,
-            runtimeName: resolveRuntimeName(),
-            environment: buildEnvironment()
-        )
-    }
-
-    nonisolated private static func fetchThumbnail(request: ThumbnailRequest) -> String? {
-        guard let executableURL = resolveSystemYtDlpSync() else { return nil }
+    private func fetchThumbnail(for taskID: UUID) async {
+        guard let executableURL = DownloadViewModel.resolveSystemYtDlpSync() else { return }
+        let url = await MainActor.run { () -> String? in
+            guard let taskIndex = tasks.firstIndex(where: { $0.id == taskID }) else { return nil }
+            tasks[taskIndex].isThumbnailLoading = true
+            return tasks[taskIndex].url
+        }
+        guard let url else { return }
 
         let task = Process()
         task.executableURL = executableURL
-        task.arguments = buildThumbnailArgumentsStatic(request: request)
-        task.environment = request.environment
+        task.arguments = buildThumbnailArguments(for: url)
+        task.environment = buildEnvironment()
 
         let pipe = Pipe()
         task.standardOutput = pipe
@@ -527,34 +529,50 @@ final class DownloadViewModel {
             try task.run()
             task.waitUntilExit()
         } catch {
-            return nil
+            await MainActor.run {
+                if let index = tasks.firstIndex(where: { $0.id == taskID }) {
+                    tasks[index].isThumbnailLoading = false
+                }
+            }
+            return
         }
 
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return output.isEmpty ? nil : output
+
+        await MainActor.run {
+            if let index = tasks.firstIndex(where: { $0.id == taskID }) {
+                tasks[index].thumbnailURL = output
+                tasks[index].isThumbnailLoading = false
+            }
+        }
     }
 
-    nonisolated private static func buildThumbnailArgumentsStatic(request: ThumbnailRequest) -> [String] {
+    private func buildThumbnailArguments(for url: String) -> [String] {
         var args: [String] = ["--get-thumbnail"]
 
-        switch request.cookieMode {
+        switch settings.cookieMode {
         case .none:
             break
         case .file:
-            if !request.cookieFilePath.isEmpty {
-                args.append(contentsOf: ["--cookies", request.cookieFilePath])
+            if !settings.cookieFilePath.isEmpty {
+                args.append(contentsOf: ["--cookies", settings.cookieFilePath])
             }
         case .browser:
-            args.append(contentsOf: ["--cookies-from-browser", request.browserType.ytDlpValue])
+            args.append(contentsOf: ["--cookies-from-browser", settings.browserType.ytDlpValue])
         }
 
-        if let runtime = request.runtimeName {
+        if let runtime = resolveRuntimeName() {
             args.append(contentsOf: ["--js-runtime", runtime])
         }
 
-        args.append(request.url)
+        args.append(url)
         return args
+    }
+
+    private func buildQualityFormat(_ quality: VideoQuality) -> String? {
+        guard let height = quality.maxHeight else { return nil }
+        return "bv*[height<=\(height)]+ba/best[height<=\(height)]/best"
     }
 }
 
@@ -571,15 +589,8 @@ struct DownloadTask: Identifiable, Hashable {
     let clipStart: String
     let clipEnd: String
     let outputName: String
-}
-
-struct ThumbnailRequest {
-    let url: String
-    let cookieMode: CookieMode
-    let cookieFilePath: String
-    let browserType: BrowserType
-    let runtimeName: String?
-    let environment: [String: String]
+    let quality: VideoQuality
+    let outputFormat: OutputFormat
 }
 
 private extension String {
@@ -587,4 +598,62 @@ private extension String {
         if count >= length { return self }
         return String(repeating: "0", count: length - count) + self
     }
+}
+
+/// 清晰度选择。
+enum VideoQuality: String, CaseIterable, Identifiable {
+    case auto
+    case p4320
+    case p2160
+    case p1440
+    case p1080
+    case p720
+    case p480
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .auto: return "自动"
+        case .p4320: return "8K"
+        case .p2160: return "4K"
+        case .p1440: return "2K/1440p"
+        case .p1080: return "1080p"
+        case .p720: return "720p"
+        case .p480: return "480p"
+        }
+    }
+
+    var maxHeight: Int? {
+        switch self {
+        case .auto: return nil
+        case .p4320: return 4320
+        case .p2160: return 2160
+        case .p1440: return 1440
+        case .p1080: return 1080
+        case .p720: return 720
+        case .p480: return 480
+        }
+    }
+}
+
+/// 输出格式。
+enum OutputFormat: String, CaseIterable, Identifiable {
+    case auto
+    case mp4
+    case mkv
+    case webm
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .auto: return "自动"
+        case .mp4: return "MP4"
+        case .mkv: return "MKV"
+        case .webm: return "WEBM"
+        }
+    }
+
+    var ytDlpValue: String { rawValue }
 }

@@ -14,6 +14,7 @@ struct DownloadPanelView: View {
             VStack(alignment: .leading, spacing: 20) {
                 headerSection
                 inputSection
+                qualitySection
                 renameSection
                 clipSection
                 actionSection
@@ -52,6 +53,28 @@ struct DownloadPanelView: View {
 
             TextField("在此粘贴 YouTube 链接…", text: $model.url)
                 .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private var qualitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("清晰度")
+                .font(.headline)
+            Picker("清晰度", selection: $model.quality) {
+                ForEach(VideoQuality.allCases) { item in
+                    Text(item.title).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Text("输出格式")
+                .font(.headline)
+            Picker("输出格式", selection: $model.outputFormat) {
+                ForEach(OutputFormat.allCases) { item in
+                    Text(item.title).tag(item)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 
