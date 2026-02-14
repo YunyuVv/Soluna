@@ -16,6 +16,7 @@ struct SettingsView: View {
                 headerSection
                 downloadSection
                 cookieSection
+                runtimeSection
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,6 +83,35 @@ struct SettingsView: View {
         }
     }
 
+    private var runtimeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("JS Runtime")
+                .font(.headline)
+            HStack(spacing: 12) {
+                TextField("Node/Bun 路径（可选）", text: $settings.jsRuntimePath)
+                    .textFieldStyle(.roundedBorder)
+                Button("选择文件") {
+                    pickRuntimeFile()
+                }
+                .buttonStyle(.bordered)
+                Button("自动检测") {
+                    settings.autoDetectRuntime()
+                }
+                .buttonStyle(.bordered)
+                Button("测试") {
+                    settings.testRuntime()
+                }
+                .buttonStyle(.bordered)
+            }
+            Text("用于解决 YouTube challenge。若留空，yt-dlp 将使用默认方式。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(settings.jsRuntimeStatus)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private func pickDirectory() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -101,6 +131,17 @@ struct SettingsView: View {
         panel.prompt = "选择"
         if panel.runModal() == .OK, let url = panel.url {
             settings.cookieFilePath = url.path
+        }
+    }
+
+    private func pickRuntimeFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "选择"
+        if panel.runModal() == .OK, let url = panel.url {
+            settings.jsRuntimePath = url.path
         }
     }
 }

@@ -55,13 +55,28 @@ final class DownloadViewModel {
         status = "准备下载"
         logStore.append("使用 yt-dlp 路径：\(ytDlpPath)", channel: .system)
         logStore.append("下载目录：\(settings.downloadDirectory)", channel: .system)
+        logStore.append("使用格式：默认最优（不指定 -f）", channel: .system)
+        logStore.append("Cookie 模式：\(settings.cookieMode.title)", channel: .system)
+        if settings.cookieMode == .file {
+            logStore.append("Cookie 文件：\(settings.cookieFilePath.isEmpty ? "未设置" : settings.cookieFilePath)", channel: .system)
+        }
+        if settings.cookieMode == .browser {
+            logStore.append("浏览器：\(settings.browserType.title)", channel: .system)
+        }
+        if settings.jsRuntimePath.isEmpty {
+            logStore.append("JS Runtime：未设置", channel: .system)
+        } else {
+            logStore.append("JS Runtime：\(settings.jsRuntimePath)", channel: .system)
+        }
 
         isDownloading = true
 
         let pipe = Pipe()
         let task = Process()
         task.executableURL = executableURL
-        task.arguments = buildArguments()
+        let args = buildArguments()
+        task.arguments = args
+        task.environment = buildEnvironment()
         task.standardOutput = pipe
         task.standardError = pipe
 
@@ -79,6 +94,7 @@ final class DownloadViewModel {
         do {
             try task.run()
             status = "下载中…"
+            logStore.append("执行命令：\(buildCommandString(executableURL: executableURL, arguments: args))", channel: .system)
             logStore.append("yt-dlp 进程启动成功", channel: .system)
             readOutput(from: pipe.fileHandleForReading)
         } catch {
@@ -133,8 +149,39 @@ final class DownloadViewModel {
             args.append(contentsOf: ["--cookies-from-browser", settings.browserType.ytDlpValue])
         }
 
+        if let runtime = resolveRuntimeName() {
+            args.append(contentsOf: ["--js-runtime", runtime])
+        }
+
         args.append(url)
         return args
+    }
+
+    private func buildEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        guard !settings.jsRuntimePath.isEmpty else { return env }
+
+        let runtimeDir = (settings.jsRuntimePath as NSString).deletingLastPathComponent
+        let existingPath = env["PATH"] ?? ""
+        env["PATH"] = "\(runtimeDir):\(existingPath)"
+        return env
+    }
+
+    private func resolveRuntimeName() -> String? {
+        guard !settings.jsRuntimePath.isEmpty else { return nil }
+        let name = URL(fileURLWithPath: settings.jsRuntimePath).lastPathComponent.lowercased()
+        let supported = ["node", "bun", "deno", "quickjs"]
+        return supported.contains(name) ? name : nil
+    }
+
+    private func buildCommandString(executableURL: URL, arguments: [String]) -> String {
+        let escaped = arguments.map { argument in
+            if argument.contains(" ") {
+                return "\"\(argument)\""
+            }
+            return argument
+        }
+        return ([executableURL.path] + escaped).joined(separator: " ")
     }
 
     /// 使用系统 PATH 查找 yt-dlp。
@@ -166,4 +213,5 @@ final class DownloadViewModel {
 
         return URL(fileURLWithPath: output)
     }
+
 }

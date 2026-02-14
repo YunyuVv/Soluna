@@ -15,7 +15,7 @@ final class AppState {
 
     init() {
         let log = LogStore()
-        let settings = SettingsStore()
+        let settings = SettingsStore(logStore: log)
         self.logStore = log
         self.settings = settings
         self.downloadModel = DownloadViewModel(logStore: log, settings: settings)
