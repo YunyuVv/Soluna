@@ -138,26 +138,10 @@ struct DownloadPanelView: View {
             Button {
                 model.startDownload()
             } label: {
-                Label(model.isDownloading ? "下载中…" : "开始下载", systemImage: "arrow.down.to.line")
+                Label(model.isDownloading ? "加入队列中…" : "开始下载", systemImage: "arrow.down.to.line")
             }
             .buttonStyle(.borderedProminent)
             .disabled(false)
-
-            Button(model.isPaused ? "继续" : "暂停") {
-                if model.isPaused {
-                    model.resumeDownload()
-                } else {
-                    model.pauseDownload()
-                }
-            }
-            .buttonStyle(.bordered)
-            .disabled(!model.isDownloading)
-
-            Button("取消") {
-                model.cancelDownload()
-            }
-            .buttonStyle(.bordered)
-            .disabled(!model.isDownloading)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.status)
@@ -192,7 +176,7 @@ struct DownloadPanelView: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            if model.currentTaskID == task.id && task.status == "下载中…" {
+                            if model.currentTaskID == task.id && (task.status == "下载中…" || task.status == "已暂停") {
                                 Button(model.isPaused ? "继续" : "暂停") {
                                     if model.isPaused {
                                         model.resumeTask(id: task.id)
