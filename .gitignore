@@ -40,3 +40,6 @@ out/
 
 # Logs
 *.log
+
+
+.idea
