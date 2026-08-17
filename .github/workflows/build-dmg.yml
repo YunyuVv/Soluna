@@ -67,8 +67,9 @@ jobs:
 
       # ── 打包 DMG（hdiutil，零依赖，CI 最稳） ─────────────────
       # 与参考项目 AppLaunchpad 一致：建 staging 目录 → 放入 app/README/符号链接 → hdiutil 打包。
-      # 排序控制：符号链接命名为 "→ Applications"（箭头开头），字母序排在 Soluna 之后，
-      #            实现「App 左、Applications 右」的拖拽布局。
+      # 图标定位：复制预生成的 .DS_Store（scripts/release/dmg-assets/.DS_Store）进 staging，
+      #            其中已钉死 Soluna.app 在左、→ Applications 在右、README.txt 在中。
+      #            .DS_Store 由本地 dmgbuild 生成后提交仓库（见 scripts/release/dmg-assets/）。
       - name: Package DMG
         run: |
           DMG_NAME="Soluna"
@@ -79,6 +80,7 @@ jobs:
           cp -R "$APP_PATH" "$STAGING/"
           cp scripts/release/README.txt "$STAGING/"
           ln -s /Applications "$STAGING/→ Applications"
+          cp scripts/release/dmg-assets/.DS_Store "$STAGING/.DS_Store"
           hdiutil create -volname "$DMG_NAME" \
             -srcfolder "$STAGING" \
             -ov -format UDZO \

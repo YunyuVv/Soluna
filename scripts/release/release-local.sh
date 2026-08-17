@@ -101,6 +101,7 @@ mkdir -p "$STAGING"
 cp -R "$APP_PATH" "$STAGING/"
 cp scripts/release/README.txt "$STAGING/"
 ln -s /Applications "$STAGING/→ Applications"
+cp scripts/release/dmg-assets/.DS_Store "$STAGING/.DS_Store"
 hdiutil create -volname "$DMG_NAME" \
   -srcfolder "$STAGING" \
   -ov -format UDZO \

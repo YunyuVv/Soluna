@@ -35,6 +35,8 @@ out/
 
 # macOS
 .DS_Store
+# 例外：DMG 打包用的预生成 .DS_Store（钉死图标位置，构建必需）
+!scripts/release/dmg-assets/.DS_Store
 .AppleDouble
 .LSOverride
 
