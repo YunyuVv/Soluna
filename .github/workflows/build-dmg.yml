@@ -65,26 +65,26 @@ jobs:
           echo "=== spctl (未签名预期拒绝，属正常) ==="
           spctl -a -vv -t open --context context:primary-signature "$APP_PATH" 2>&1 | head -5 || true
 
-      # ── 打包 DMG（create-dmg）──────────────────────────────────
-      # CI 无头环境加 --skip-jenkins 跳过 AppleScript 图标排版（该功能需 GUI），
-      # 产出功能完整的 DMG，图标位置由 Finder 自动排列。
-      # 本地构建（release-local.sh）不加此 flag，可获得完整排版效果。
-      - name: Install create-dmg
-        run: brew install create-dmg
-
+      # ── 打包 DMG（hdiutil，零依赖，CI 最稳） ─────────────────
+      # 与参考项目 AppLaunchpad 一致：建 staging 目录 → 放入 app/README/符号链接 → hdiutil 打包。
+      # 排序控制：符号链接命名为 "→ Applications"（箭头开头），字母序排在 Soluna 之后，
+      #            实现「App 左、Applications 右」的拖拽布局。
       - name: Package DMG
         run: |
-          create-dmg \
-            --volname "Soluna" \
-            --volicon "$APP_PATH/Contents/Resources/AppIcon.icns" \
-            --app-drop-link 600 180 \
-            --skip-jenkins \
-            --no-internet-enable \
-            --hide-extension "Soluna" \
-            "$PWD/build/Soluna.dmg" \
-            "$APP_PATH"
-          DMG_PATH="$PWD/build/Soluna.dmg"
+          DMG_NAME="Soluna"
+          DMG_PATH="$PWD/build/${DMG_NAME}.dmg"
+          STAGING="$PWD/build/dmg_staging"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "$APP_PATH" "$STAGING/"
+          cp scripts/release/README.txt "$STAGING/"
+          ln -s /Applications "$STAGING/→ Applications"
+          hdiutil create -volname "$DMG_NAME" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "$DMG_PATH"
           echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"
+          hdiutil verify "$DMG_PATH"
           du -h "$DMG_PATH"
 
       - name: Upload DMG artifact
