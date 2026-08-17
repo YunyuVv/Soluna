@@ -41,5 +41,9 @@ out/
 # Logs
 *.log
 
+# Agent 内部目录（非项目源码）
+.workbuddy/
+.omo/
+
 
 .idea

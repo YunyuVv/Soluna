@@ -1,0 +1,116 @@
+name: Build Unsigned DMG
+
+# ─────────────────────────────────────────────────────────────
+# 开源技术人分发路线：
+#   不签名打包 → 用户下载后执行
+#     sudo xattr -r -d com.apple.quarantine /Applications/Soluna.app
+#   再右键打开即可使用。
+# 本工作流只产出「未签名」的 DMG，不做 Developer ID 签名 / 公证。
+# ─────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      - 'v*'            # 推送 vX.Y.Z 标签时自动构建并发布 Release
+  pull_request:        # PR 时只验证能否编译通过（不发布）
+  workflow_dispatch:    # 允许在 Actions 页面手动触发
+
+concurrency:
+  group: build-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write      # 仅 tag 触发时需要，用于 gh release create
+
+jobs:
+  build-dmg:
+    name: Build & Package Unsigned DMG
+    runs-on: macos-26  # GA 镜像，自带 Xcode 26 + macOS 26 SDK（匹配 deployment target 26.2）
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          sw_vers
+          xcodebuild -version
+
+      # ── 未签名 Release 构建 ──────────────────────────────
+      # 关键覆盖项：
+      #   CODE_SIGN_IDENTITY=""       清掉签名身份（避免对方无证书导致签名失效）
+      #   CODE_SIGNING_ALLOWED=NO     彻底跳过签名（产出无签名 app，符合「不签名」分发）
+      #   CODE_SIGNING_REQUIRED=NO
+      #   ENABLE_HARDENED_RUNTIME=NO  无签名时 hardened runtime 无意义，关掉
+      # 注：要产出通用二进制（同时支持 Intel），把 ARCHS 改为 "arm64 x86_64" 即可。
+      - name: Build unsigned Release app
+        run: |
+          xcodebuild -project Soluna.xcodeproj \
+            -scheme Soluna \
+            -configuration Release \
+            build \
+            ARCHS="arm64" \
+            CONFIGURATION_BUILD_DIR="$PWD/build/Release" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            ENABLE_HARDENED_RUNTIME=NO
+          echo "APP_PATH=$PWD/build/Release/Soluna.app" >> "$GITHUB_ENV"
+
+      # 校验确实「未签名」（预期 codesign 报 "code object is not signed" / spctl 拒绝）
+      - name: Verify app is unsigned
+        run: |
+          echo "=== codesign -dv ==="
+          codesign -dv --verbose=2 "$APP_PATH" 2>&1 | head -20 || true
+          echo "=== spctl (未签名预期拒绝，属正常) ==="
+          spctl -a -vv -t open --context context:primary-signature "$APP_PATH" 2>&1 | head -5 || true
+
+      # ── 打包 DMG（hdiutil，零依赖，CI 最稳） ─────────────
+      - name: Package DMG
+        run: |
+          DMG_NAME="Soluna"
+          DMG_PATH="$PWD/build/${DMG_NAME}.dmg"   # 本步骤内使用的本地变量
+          STAGING="$PWD/build/dmg_staging"
+          rm -rf "$STAGING"
+          mkdir -p "$STAGING"
+          cp -R "$APP_PATH" "$STAGING/"
+          cp scripts/release/README.txt "$STAGING/"
+          ln -s /Applications "$STAGING/Applications"
+          hdiutil create -volname "$DMG_NAME" \
+            -srcfolder "$STAGING" \
+            -ov -format UDZO \
+            "$DMG_PATH"
+          echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"   # 供后续 Release 步骤使用
+          hdiutil verify "$DMG_PATH"
+          du -h "$DMG_PATH"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Soluna-unsigned-dmg
+          path: build/Soluna.dmg
+          if-no-files-found: error
+
+      # 仅当推送了 v* 标签时，自动创建/更新 GitHub Release 并附上 DMG。
+      # 幂等：若 Release 已由 `gh release create` 预先创建（如用户手动发版），
+      # 则仅把 DMG 资产上传/覆盖到该 Release，避免「release 已存在」冲突。
+      - name: Create / Update GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="未签名 DMG（开源技术人分发版）。
+
+          挂载 DMG 后请阅读里面的 README.txt，按三步安装：
+          1) 把 Soluna.app 拖到 /Applications；
+          2) 终端执行 \`sudo xattr -r -d com.apple.quarantine /Applications/Soluna.app\`；
+          3) 首次打开时点「打开」。"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，追加/覆盖 DMG 资产"
+            gh release upload "$TAG" "$DMG_PATH" --clobber
+          else
+            gh release create "$TAG" "$DMG_PATH" \
+              --title "$TAG" \
+              --notes "$NOTES"
+          fi
