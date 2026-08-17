@@ -16,7 +16,7 @@
 #   - 因此本机无需本地编译，也不需再跑 scripts/release/release-local.sh。
 #   - 版本发布说明取自 NOTES_FILE（默认脚本同目录 CHANGELOG.md）。
 #   - 对外固定下载地址（永远指向最新版）：
-#       https://github.com/Idea-flow/Soluna/releases/latest/download/Soluna.dmg
+#       https://github.com/YunyuVv/Soluna/releases/latest/download/Soluna.dmg
 #
 set -e
 
@@ -134,7 +134,7 @@ gh release create "$TAG" \
   --title "$TITLE" \
   --notes-file "$NOTES_FILE"
 
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "Idea-flow/Soluna")
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "YunyuVv/Soluna")
 echo ""
 echo "✅ 已创建 Release $TAG"
 echo "   GitHub 正在后台构建未签名 DMG，几分钟后到 Release 页面查看 Soluna.dmg"
