@@ -65,23 +65,22 @@ jobs:
           echo "=== spctl (未签名预期拒绝，属正常) ==="
           spctl -a -vv -t open --context context:primary-signature "$APP_PATH" 2>&1 | head -5 || true
 
-      # ── 打包 DMG（hdiutil，零依赖，CI 最稳） ─────────────
+      # ── 打包 DMG（create-dmg，图标精确定位：App 左、Applications 右）──
+      - name: Install create-dmg
+        run: brew install create-dmg
+
       - name: Package DMG
         run: |
-          DMG_NAME="Soluna"
-          DMG_PATH="$PWD/build/${DMG_NAME}.dmg"   # 本步骤内使用的本地变量
-          STAGING="$PWD/build/dmg_staging"
-          rm -rf "$STAGING"
-          mkdir -p "$STAGING"
-          cp -R "$APP_PATH" "$STAGING/"
-          cp scripts/release/README.txt "$STAGING/"
-          ln -s /Applications "$STAGING/Applications"
-          hdiutil create -volname "$DMG_NAME" \
-            -srcfolder "$STAGING" \
-            -ov -format UDZO \
-            "$DMG_PATH"
-          echo "DMG_PATH=$DMG_PATH" >> "$GITHUB_ENV"   # 供后续 Release 步骤使用
-          hdiutil verify "$DMG_PATH"
+          create-dmg \
+            --volname "Soluna" \
+            --volicon "$APP_PATH/Contents/Resources/AppIcon.icns" \
+            --app-drop-link 600 180 \
+            --skip-jenkins \
+            --no-internet-enable \
+            --hide-extension "Soluna" \
+            "$PWD/build/Soluna.dmg" \
+            "$APP_PATH"
+          echo "DMG_PATH=$PWD/build/Soluna.dmg" >> "$GITHUB_ENV"
           du -h "$DMG_PATH"
 
       - name: Upload DMG artifact
@@ -102,7 +101,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           NOTES="未签名 DMG（开源技术人分发版）。
 
-          挂载 DMG 后请阅读里面的 README.txt，按三步安装：
+          安装步骤：
           1) 把 Soluna.app 拖到 /Applications；
           2) 终端执行 \`sudo xattr -r -d com.apple.quarantine /Applications/Soluna.app\`；
           3) 首次打开时点「打开」。"

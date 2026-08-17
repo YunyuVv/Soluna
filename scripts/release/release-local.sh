@@ -91,21 +91,24 @@ xcodebuild -project Soluna.xcodeproj \
   CODE_SIGNING_REQUIRED=NO \
   ENABLE_HARDENED_RUNTIME=NO
 
-# ── 6. 打包 DMG（hdiutil，零依赖）───────────────────────────
-echo "▶ 打包 DMG (hdiutil)…"
-DMG_NAME="Soluna"
-DMG_PATH="$PWD/build/${DMG_NAME}-${NEW_VER}.dmg"
-STAGING="$PWD/build/dmg_staging"
-rm -rf "$STAGING"
-mkdir -p "$STAGING"
-cp -R "$APP_PATH" "$STAGING/"
-cp scripts/release/README.txt "$STAGING/"
-ln -s /Applications "$STAGING/Applications"
-hdiutil create -volname "$DMG_NAME" \
-  -srcfolder "$STAGING" \
-  -ov -format UDZO \
-  "$DMG_PATH"
-hdiutil verify "$DMG_PATH" >/dev/null
+# ── 6. 打包 DMG（create-dmg，图标精确定位：App 左、Applications 右）──
+echo "▶ 检查 create-dmg…"
+if ! command -v create-dmg >/dev/null 2>&1; then
+  echo "  未找到 create-dmg，安装中：brew install create-dmg"
+  brew install create-dmg
+fi
+
+echo "▶ 打包 DMG (create-dmg)…"
+DMG_PATH="$PWD/build/Soluna-${NEW_VER}.dmg"
+create-dmg \
+  --volname "Soluna" \
+  --volicon "$APP_PATH/Contents/Resources/AppIcon.icns" \
+  --app-drop-link 600 180 \
+  --skip-jenkins \
+  --no-internet-enable \
+  --hide-extension "Soluna" \
+  "$DMG_PATH" \
+  "$APP_PATH"
 echo "  产物大小：$(du -h "$DMG_PATH" | cut -f1)"
 
 # ── 7. 可选：打本地 git tag（不推送，避免触发 CI 重复发版）───
